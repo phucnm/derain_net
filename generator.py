@@ -11,21 +11,18 @@ from vgg16 import VGG16
 
 
 class Generator(nn.Module):
-    def __init__(self, input_shp, config):
+    def __init__(self, config):
         super(Generator, self).__init__()
 
-        self.input_shp = input_shp
-        self.indim = input_shp[1]
         self.num_res_layer = config.num_res_layer
         self.num_time_step = config.num_time_step
-        self.theta = config.theta
 
         # ResNet Blocks
         # + 1 is the mask
-        self.res_blocks = ResBlock(self.indim + 1, config)
+        self.res_blocks = ResBlock(config)
 
         # LSTM
-        self.lstm = LSTM(input_shp)
+        self.lstm = LSTM()
 
         self.det_conv_mask = nn.Sequential(
             nn.Conv2d(32, 1, 3, 1, 1)
@@ -62,7 +59,7 @@ class Generator(nn.Module):
 
         return l_p
 
-    def forward(self, rain_img, label_img):
+    def forward(self, rain_img):
         batch_size, row, col = rain_img.shape[0], rain_img.shape[2], rain_img.shape[3]
         # Attention map is init to 0.5 according to paper
         mask = Variable(torch.ones(batch_size, 1, row, col)) / 2.
@@ -80,18 +77,18 @@ class Generator(nn.Module):
             mask = self.det_conv_mask(h)
             mask_list.append(mask)
         # Calculate attentive-loss
-        loss_att = 0.0
-        bin_mask = binary_mask(rain_img, label_img).detach_()
-        for i in range(self.num_time_step):
-            mse_loss = F.mse_loss(bin_mask, mask_list[i])
-            loss_att += np.power(self.theta, self.num_time_step - i + 1) \
-                        * mse_loss
+        # loss_att = 0.0
+        # bin_mask = binary_mask(rain_img, label_img).detach_()
+        # for i in range(self.num_time_step):
+        #     mse_loss = F.mse_loss(bin_mask, mask_list[i])
+        #     loss_att += np.power(self.theta, self.num_time_step - i + 1) \
+        #                 * mse_loss
 
         x = torch.cat((rain_img, mask), 1)
         x, frame1, frame2 = self.autoencoder(x)
         # Loss multiscale and perceptual
-        loss_ae = self.autoencoder_loss([frame1, frame2, x], label_img)
-        print("Loss AE: {}".format(loss_ae))
-        print("Loss ATT: {}".format(loss_att))
-        loss = loss_ae + loss_att
-        return loss_ae, mask_list, frame1, frame2, x
+        # loss_ae = self.autoencoder_loss([frame1, frame2, x], label_img)
+        # print("Loss AE: {}".format(loss_ae))
+        # print("Loss ATT: {}".format(loss_att))
+        # loss = loss_ae + loss_att
+        return mask_list, frame1, frame2, x

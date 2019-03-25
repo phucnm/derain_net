@@ -6,11 +6,11 @@ import torch.nn.functional as F
 
 
 class LSTM(nn.Module):
-    def __init__(self, input_shp):
+    def __init__(self):
         super(LSTM, self).__init__()
-        batch_size = input_shp[0]
-        h = input_shp[2]
-        w = input_shp[3]
+        batch_size = 1
+        h = 480
+        w = 720
         self.cell_state = torch.zeros(batch_size, 32, h, w, requires_grad=True)
         self.lstm_feats = torch.zeros(batch_size, 32, h, w, requires_grad=True)
         if torch.cuda.is_available():

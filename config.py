@@ -53,9 +53,9 @@ model_arg.add_argument("--num_time_step", type=int,
                        default=4,
                        help="Number of attention maps")
 model_arg.add_argument("--theta", type=int,
-                       default=4,
+                       default=0.8,
                        help="Parameter to compute attentive loss")                       
-model_arg.add_argument("--lambda_l", type=int,
+model_arg.add_argument("--gamma", type=int,
                        default=0.05,
                        help="Parameter to compute discriminator loss")                       
 

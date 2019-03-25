@@ -9,9 +9,14 @@ class VGG16(nn.Module):
     def __init__(self):
         super(VGG16, self).__init__()
         self.vgg_model = torchvision.models.vgg16(pretrained=True)
+        self.vgg_model.train(False)
+        self.vgg_model.eval()
         if torch.cuda.is_available():
             self.vgg_model = self.vgg_model.cuda()
+        for param in self.vgg_model.features.parameters():
+            param.requires_grad = False
         self.vgg_layers = self.vgg_model.features
+
         self.layer_name_mapping = {
             '1': "relu1_1",
             '3': "relu1_2",

@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class ResBlock(nn.Module):
-    def __init__(self, indim, config):
+    def __init__(self, config):
         super(ResBlock, self).__init__()
 
         # The first layer is from indim => 32 outdim
@@ -16,7 +16,7 @@ class ResBlock(nn.Module):
             self,
             "det_conv_0",
             nn.Sequential(
-                nn.Conv2d(indim, 32, 3, 1, 1),
+                nn.Conv2d(4, 32, 3, 1, 1),
                 nn.ReLU()
             )
         )
