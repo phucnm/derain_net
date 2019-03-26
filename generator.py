@@ -1,94 +1,225 @@
-import numpy as np
+# PyTorch lib
 import torch
-from torch import nn
+import torch.nn as nn
 from torch.autograd import Variable
-from resblock import ResBlock
-from lstm import LSTM
+import torch.utils.data as Data
 import torch.nn.functional as F
-from autoencoder import ContxtAutoEncoder
-from utils import binary_mask, resize, show_img
-from vgg16 import VGG16
+import torchvision
+# Tools lib
+import numpy as np
+import random
+import time
+import os
 
 
 class Generator(nn.Module):
     def __init__(self, config):
         super(Generator, self).__init__()
-
-        self.num_res_layer = config.num_res_layer
         self.num_time_step = config.num_time_step
-
-        # ResNet Blocks
-        # + 1 is the mask
-        self.res_blocks = ResBlock(config)
+        # Recurrent network
+        self.det_conv0 = nn.Sequential(
+            nn.Conv2d(4, 32, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.det_conv1 = nn.Sequential(
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.det_conv2 = nn.Sequential(
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.det_conv3 = nn.Sequential(
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.det_conv4 = nn.Sequential(
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.det_conv5 = nn.Sequential(
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, 3, 1, 1),
+            nn.ReLU()
+            )
 
         # LSTM
-        self.lstm = LSTM()
+        self.conv_i = nn.Sequential(
+            nn.Conv2d(32 + 32, 32, 3, 1, 1),
+            nn.Sigmoid()
+            )
+        self.conv_f = nn.Sequential(
+            nn.Conv2d(32 + 32, 32, 3, 1, 1),
+            nn.Sigmoid()
+            )
+        self.conv_g = nn.Sequential(
+            nn.Conv2d(32 + 32, 32, 3, 1, 1),
+            nn.Tanh()
+            )
+        self.conv_o = nn.Sequential(
+            nn.Conv2d(32 + 32, 32, 3, 1, 1),
+            nn.Sigmoid()
+            )
 
+        # To compute mask
         self.det_conv_mask = nn.Sequential(
-            nn.Conv2d(32, 1, 3, 1, 1)
-        )
-        
-        self.autoencoder = ContxtAutoEncoder()
+            nn.Conv2d(32, 1, 3, 1, 1),
+            )
 
-    def autoencoder_loss(self, decoded_imgs, label_img):
-        loss_m = self.multiscale_loss(decoded_imgs, label_img)
-        # The last item is the final decoded image
-        loss_p = self.perceptual_loss(decoded_imgs[-1], label_img)
-        print("Loss M: {}".format(loss_m))
-        print("Loss P: {}".format(loss_p))
-        return loss_m + loss_p
+        # Autoencoder
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(4, 64, 5, 1, 2),
+            nn.ReLU()
+            )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(64, 128, 3, 2, 1),
+            nn.ReLU()
+            )
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(128, 128, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(128, 256, 3, 2, 1),
+            nn.ReLU()
+            )
+        self.conv5 = nn.Sequential(
+            nn.Conv2d(256, 256, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.conv6 = nn.Sequential(
+            nn.Conv2d(256, 256, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.diconv1 = nn.Sequential(
+            nn.Conv2d(256, 256, 3, 1, 2, dilation=2),
+            nn.ReLU()
+            )
+        self.diconv2 = nn.Sequential(
+            nn.Conv2d(256, 256, 3, 1, 4, dilation=4),
+            nn.ReLU()
+            )
+        self.diconv3 = nn.Sequential(
+            nn.Conv2d(256, 256, 3, 1, 8, dilation=8),
+            nn.ReLU()
+            )
+        self.diconv4 = nn.Sequential(
+            nn.Conv2d(256, 256, 3, 1, 16, dilation=16),
+            nn.ReLU()
+            )
+        self.conv7 = nn.Sequential(
+            nn.Conv2d(256, 256, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.conv8 = nn.Sequential(
+            nn.Conv2d(256, 256, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.deconv1 = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, 4, 2, 1),
+            nn.ReflectionPad2d((1, 0, 1, 0)),
+            nn.AvgPool2d(2, stride=1),
+            nn.ReLU()
+            )
+        self.conv9 = nn.Sequential(
+            nn.Conv2d(128, 128, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.deconv2 = nn.Sequential(
+            nn.ConvTranspose2d(128, 64, 4, 2, 1),
+            nn.ReflectionPad2d((1, 0, 1, 0)),
+            nn.AvgPool2d(2, stride=1),
+            nn.ReLU()
+            )
+        self.conv10 = nn.Sequential(
+            nn.Conv2d(64, 32, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.outframe1 = nn.Sequential(
+            nn.Conv2d(256, 3, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.outframe2 = nn.Sequential(
+            nn.Conv2d(128, 3, 3, 1, 1),
+            nn.ReLU()
+            )
+        self.output = nn.Sequential(
+            nn.Conv2d(32, 3, 3, 1, 1)
+            )
 
-    def multiscale_loss(self, decoded_imgs, label_img):
-        lambdas = [0.6, 0.8, 1]
-        scales = [0.25, 0.5, 1]
-        loss_m = 0
-        for i, img in enumerate(decoded_imgs):
-            scaled_img = resize(label_img, scales[i]).detach_()
-            loss_m += lambdas[i] * F.mse_loss(scaled_img, img)
-        return loss_m
-
-    def perceptual_loss(self, decoded_img, label_img):
-        model = VGG16()
-        outputs = model.forward(decoded_img)
-        outputs2 = model.forward(label_img)
-        losses = []
-        for i, out in enumerate(outputs):
-            l = F.mse_loss(out, outputs2[i])
-            losses.append(l)
-        l_p = torch.FloatTensor(losses).mean()
-
-        return l_p
-
-    def forward(self, rain_img):
-        batch_size, row, col = rain_img.shape[0], rain_img.shape[2], rain_img.shape[3]
+    def forward(self, input):
+        # Batch size should be 1
+        batch_size, h, w = input.size(0), input.size(2), input.size(3)
         # Attention map is init to 0.5 according to paper
-        mask = Variable(torch.ones(batch_size, 1, row, col)) / 2.
+
+        mask = Variable(torch.ones(batch_size, 1, h, w)) / 2.
+        h = Variable(torch.zeros(batch_size, 32, h, w))
+        c = Variable(torch.zeros(batch_size, 32, h, w))
         if torch.cuda.is_available():
             mask = mask.cuda()
+            h = h.cuda()
+            c = c.cuda()
+
         mask_list = []
-        # Number of time steps
+        # Number of time steps    
         for i in range(self.num_time_step):
             # Concat the input image with the previous attention map
             # And feed to the next block of recurrent network
-            x = torch.cat((rain_img, mask), 1)
+            x = torch.cat((input, mask), 1)
+
             # ResNet block
-            x = self.res_blocks(x)
-            h = self.lstm(x)
+            x = self.det_conv0(x)
+            resx = x
+            x = F.relu(self.det_conv1(x) + resx)
+            resx = x
+            x = F.relu(self.det_conv2(x) + resx)
+            resx = x
+            x = F.relu(self.det_conv3(x) + resx)
+            resx = x
+            x = F.relu(self.det_conv4(x) + resx)
+            resx = x
+            x = F.relu(self.det_conv5(x) + resx)
+            
+            x = torch.cat((x, h), 1)
+            i = self.conv_i(x)
+            f = self.conv_f(x)
+            g = self.conv_g(x)
+            o = self.conv_o(x)
+            c = f * c + i * g
+            h = o * F.tanh(c)
             mask = self.det_conv_mask(h)
             mask_list.append(mask)
-        # Calculate attentive-loss
-        # loss_att = 0.0
-        # bin_mask = binary_mask(rain_img, label_img).detach_()
-        # for i in range(self.num_time_step):
-        #     mse_loss = F.mse_loss(bin_mask, mask_list[i])
-        #     loss_att += np.power(self.theta, self.num_time_step - i + 1) \
-        #                 * mse_loss
-
-        x = torch.cat((rain_img, mask), 1)
-        x, frame1, frame2 = self.autoencoder(x)
-        # Loss multiscale and perceptual
-        # loss_ae = self.autoencoder_loss([frame1, frame2, x], label_img)
-        # print("Loss AE: {}".format(loss_ae))
-        # print("Loss ATT: {}".format(loss_att))
-        # loss = loss_ae + loss_att
+        x = torch.cat((input, mask), 1)
+        x = self.conv1(x)
+        res1 = x
+        x = self.conv2(x)
+        x = self.conv3(x)
+        res2 = x
+        x = self.conv4(x)
+        x = self.conv5(x)
+        x = self.conv6(x)
+        x = self.diconv1(x)
+        x = self.diconv2(x)
+        x = self.diconv3(x)
+        x = self.diconv4(x)
+        x = self.conv7(x)
+        x = self.conv8(x)
+        frame1 = self.outframe1(x)
+        x = self.deconv1(x)
+        x = x + res2
+        x = self.conv9(x)
+        frame2 = self.outframe2(x)
+        x = self.deconv2(x)
+        x = x + res1
+        x = self.conv10(x)
+        x = self.output(x)
         return mask_list, frame1, frame2, x

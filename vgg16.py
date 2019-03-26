@@ -11,10 +11,12 @@ class VGG16(nn.Module):
         self.vgg_model = torchvision.models.vgg16(pretrained=True)
         self.vgg_model.train(False)
         self.vgg_model.eval()
-        if torch.cuda.is_available():
-            self.vgg_model = self.vgg_model.cuda()
         for param in self.vgg_model.features.parameters():
             param.requires_grad = False
+        for param in self.vgg_model.parameters():
+            param.requires_grad = False
+        if torch.cuda.is_available():
+            self.vgg_model = self.vgg_model.cuda()
         self.vgg_layers = self.vgg_model.features
 
         self.layer_name_mapping = {
@@ -35,17 +37,20 @@ class VGG16(nn.Module):
 # For testing
 if __name__ == "__main__":
     model = VGG16()
-    img = mpimg.imread('/Volumes/Data/MSc-UVic/DeepLearning/DeRainDrop/test_a/data/0_rain.png')
+    img = mpimg.imread('../test_a/data/0_rain.png')
     img = torch.tensor(img).permute(2, 0, 1).unsqueeze(0)
-    img2 = mpimg.imread('/Volumes/Data/MSc-UVic/DeepLearning/DeRainDrop/test_a/gt/0_clean.png')
+    img2 = mpimg.imread('../test_a/gt/0_clean.png')
     img2 = torch.tensor(img2).permute(2, 0, 1).unsqueeze(0)
+    if torch.cuda.is_available():
+        img = img.cuda()
+        img2 = img2.cuda()
     model.eval()
     with torch.no_grad():
         outputs = model.forward(img)
         outputs2 = model.forward(img2)
-        losses = np.array([])
+        losses = []
         for i, out in enumerate(outputs):
             l = torch.nn.functional.mse_loss(out, outputs2[i])
-            losses = np.append(losses, l)
-        l_p = np.mean(losses)
+            losses.append(l)
+        l_p = torch.FloatTensor(losses).mean()
         print(l_p)

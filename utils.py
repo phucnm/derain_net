@@ -14,22 +14,34 @@ def show_img(img):
 
 
 def binary_mask(rain_img, clean_img):
+    """ Compute binary mask from the degraded image and the clean image
+    Threashold is 30 according to the paper
+    """
     diff = torch.abs(rain_img - clean_img)
     threshold = 30.0
     diff[diff > threshold/255.0] = 1
     return diff
-    
+
 
 def resize(img, ratio):
     # Input img should be in shape (1, 3, 480, 720)
     # Transform to (480, 720, 3) and type uint8
+
+    # This is frustrating.
+    # Firstly, move to CPU to convert the image to PIL image.
     img = img.squeeze(0).cpu()
     pil_img = transforms.functional.to_pil_image(img)
+
+    # Extract the image size
     width, height = pil_img.size
+
+    # Compute new image size
     width = int(width * ratio)
     height = int(height * ratio)
+
+    # Resize and convert back to tensor, then move to GPU
     scaled = transforms.functional.resize(pil_img, (height, width))
-    scaled = transforms.functional.to_tensor(scaled)    
+    scaled = transforms.functional.to_tensor(scaled)
     if torch.cuda.is_available():
         scaled = scaled.cuda()
     return scaled
@@ -42,9 +54,9 @@ def image2tensor(img):
 
 
 def transform_to_mpimg(img):
-    '''
+    """
     Transform tensor to matplotlib image
     From (1, C, w, h) to (w, h, C)
-    '''
+    """
     img = img.squeeze(0).squeeze(0)
     return img.detach().numpy().astype(np.uint8)

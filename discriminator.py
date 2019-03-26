@@ -70,7 +70,7 @@ class Discriminator(nn.Module):
 
 if __name__ == '__main__':
     model = Discriminator()
-    img = mpimg.imread('/Volumes/Data/MSc-UVic/DeepLearning/DeRainDrop/test_a/data/0_rain.png')
+    img = mpimg.imread('../test_a/data/0_rain.png')
     img = torch.tensor(img).permute(2, 0, 1).unsqueeze(0)
     # x = torch.rand(1, 3, 480, 720)
     out = model.forward(img)
@@ -78,4 +78,3 @@ if __name__ == '__main__':
     mask = mask.transpose(1, 2, 0).squeeze(-1)
     plt.imshow(mask, cmap="gray")
     plt.show()
-    # print(out)

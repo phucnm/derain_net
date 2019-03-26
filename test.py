@@ -20,6 +20,6 @@ if __name__ == '__main__':
         img = mpimg.imread(config.data_dir + inp_list[i])
         img = torch.tensor(img).permute(2, 0, 1).unsqueeze(0)
         losses, masks, f1, f2, x = model.forward(img, img)
-        
+
         # x = x.detach().numpy()
         # x = x.squeeze(0).transpose(1, 2, 0).astype(np.uint8)
