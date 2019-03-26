@@ -7,9 +7,6 @@ import torch.nn.functional as F
 import torchvision
 # Tools lib
 import numpy as np
-import random
-import time
-import os
 
 
 class Generator(nn.Module):
@@ -158,12 +155,12 @@ class Generator(nn.Module):
 
     def forward(self, input):
         # Batch size should be 1
-        batch_size, h, w = input.size(0), input.size(2), input.size(3)
+        batch_size, height, width = input.size(0), input.size(2), input.size(3)
         # Attention map is init to 0.5 according to paper
 
-        mask = Variable(torch.ones(batch_size, 1, h, w)) / 2.
-        h = Variable(torch.zeros(batch_size, 32, h, w))
-        c = Variable(torch.zeros(batch_size, 32, h, w))
+        mask = Variable(torch.ones(batch_size, 1, height, width)) / 2.
+        h = Variable(torch.zeros(batch_size, 32, height, width))
+        c = Variable(torch.zeros(batch_size, 32, height, width))
         if torch.cuda.is_available():
             mask = mask.cuda()
             h = h.cuda()
@@ -195,7 +192,7 @@ class Generator(nn.Module):
             g = self.conv_g(x)
             o = self.conv_o(x)
             c = f * c + i * g
-            h = o * F.tanh(c)
+            h = o * torch.tanh(c)
             mask = self.det_conv_mask(h)
             mask_list.append(mask)
         x = torch.cat((input, mask), 1)

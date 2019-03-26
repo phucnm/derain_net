@@ -25,11 +25,15 @@ main_arg.add_argument("--mode", type=str,
 # Arguments for training
 train_arg = add_argument_group("Training")
 
+# This is provided by the author
+train_arg.add_argument("--weights_dir", type=str,
+                       default="./save/gen.pkl",
+                       help="Directory with trained weights")
 train_arg.add_argument("--data_dir", type=str,
-                       default="../train/data/",
+                       default="../test_a/data/",
                        help="Directory with input data")
 train_arg.add_argument("--label_dir", type=str,
-                       default="../train/gt/",
+                       default="../test_a/gt/",
                        help="Directory with label data")
 train_arg.add_argument("--save_dir", type=str,
                        default="./save",

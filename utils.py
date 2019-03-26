@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 
 
 def show_img(img):
-    img = img.squeeze(0).permute(1, 2, 0)
     plt.figure()
     plt.imshow(img)
     plt.show()
@@ -57,6 +56,7 @@ def transform_to_mpimg(img):
     """
     Transform tensor to matplotlib image
     From (1, C, w, h) to (w, h, C)
+    Also multiply 255 to get uint8 data
     """
-    img = img.squeeze(0).squeeze(0)
+    img = img.squeeze(0).permute(1, 2, 0) * 255
     return img.detach().numpy().astype(np.uint8)
