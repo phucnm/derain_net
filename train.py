@@ -13,6 +13,7 @@ import utils
 from discriminator import Discriminator
 from generator import Generator
 from vgg16 import VGG16
+from tensorboardX import SummaryWriter
 
 
 def attentive_loss(rain_img, label_img, mask_list, config):
@@ -211,6 +212,18 @@ if __name__ == '__main__':
     else:
         vgg16 = None
 
+    # Create log directory and save directory if it does not exist
+    if not os.path.exists(config.log_dir):
+        os.makedirs(config.log_dir)
+    if not os.path.exists(config.save_dir):
+        os.makedirs(config.save_dir)
+
+    # Create loggers and checkpoint saver
+    g_writer = SummaryWriter(
+        log_dir=os.path.join(config.log_dir, "generative_loss"))
+    d_writer = SummaryWriter(
+        log_dir=os.path.join(config.log_dir, "discriminative_loss"))
+
     model_gen = Generator(config)
     model_discriminator = Discriminator()
     if torch.cuda.is_available():
@@ -239,15 +252,41 @@ if __name__ == '__main__':
         label_real = label_real.cuda()
         label_fake = label_fake.cuda()
 
+    starting_epoch = 0
+    starting_index = 0
+    # Load the model checkpoint if possible
+    checkpoint_file = os.path.join(config.save_dir, "checkpoint.pth")
+    if os.path.exists(checkpoint_file):
+        if config.resume:
+            print("Checkpoint found! Resuming")
+            # Read checkpoint file.
+            device = "cuda:0" if torch.cuda.is_available() else "cpu"
+            load_res = torch.load(checkpoint_file, map_location=device)
+            # Resume iterations
+            starting_epoch = load_res["epoch"] + 1
+            starting_index = load_res["index"] + 1
+            # Resume model
+            model_gen.load_state_dict(load_res["model_gen"])
+            model_discriminator.load_state_dict(load_res["model_discriminator"])
+            # Resume optimizer
+            optim_g.load_state_dict(load_res["optim_g"])
+            optim_d.load_state_dict(load_res["optim_d"])
+        else:
+            os.remove(checkpoint_file)
+
     # Num epoch is around 100000 to get good results
-    for epoch in range(config.num_epoch):
+    for epoch in range(config.num_epoch)[starting_epoch:]:
         prefix = "Training Epoch {:3d}: ".format(epoch)
 
+        inp_list = inp_list[starting_index:]
+        label_list = label_list[starting_index:]
         # Batch size is 1 by default.
-        for i in tqdm(range(len(inp_list))):
-            img = mpimg.imread(config.data_dir + inp_list[i])
+        # It's not neccessary to use data loader
+        # As I'm loading images one by one.
+        for index in tqdm(range(len(inp_list))):
+            img = mpimg.imread(config.data_dir + inp_list[index])
             img = utils.image2tensor(img)
-            label_img = mpimg.imread(config.label_dir + label_list[i])
+            label_img = mpimg.imread(config.label_dir + label_list[index])
             label_img = utils.image2tensor(label_img)
 
             if torch.cuda.is_available():
@@ -271,7 +310,7 @@ if __name__ == '__main__':
             D_loss_fake = BCE_loss(D_fake, label_fake)
             # Eq8. Gamma default to 0.05
             D_loss = D_loss_real + D_loss_fake + config.gamma * map_loss
-            print("Loss D: {}".format(D_loss))
+
             D_loss.backward()
             optim_d.step()
 
@@ -286,7 +325,23 @@ if __name__ == '__main__':
             )
             # Eq7
             G_loss = 0.01 * -BCE_loss(D_fake, label_fake) + gen_loss
-            print("Loss G: {}".format(G_loss))
             G_loss.backward()
             optim_g.step()
             optim_g.zero_grad()
+
+            # Logging
+            print("Loss D: {}".format(D_loss))
+            print("Loss G: {}".format(G_loss))
+            d_writer.add_scalar("loss", loss, global_step=index)
+            g_writer.add_scalar("loss", loss, global_step=index)
+
+            # Save the checkpoint
+            if index % config.rep_intv == 0:
+                torch.save({
+                    "epoch": epoch,
+                    "index": index,
+                    "model_gen": model_gen.state_dict(),
+                    "model_discriminator": model_discriminator.state_dict(),
+                    "optim_g": optim_g.state_dict(),
+                    "optim_d": optim_d.state_dict()
+                }, checkpoint_file)
