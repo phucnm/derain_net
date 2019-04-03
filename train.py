@@ -317,8 +317,8 @@ if __name__ == '__main__':
             # Train generator
             optim_g.zero_grad()
             # These was computed in above
-            # masks, f1, f2, x = model_gen.forward(img)
-            # mask_f, D_fake = model_discriminator.forward(x)
+            masks, f1, f2, x = model_gen.forward(img)
+            mask_f, D_fake = model_discriminator.forward(x)
             gen_loss = generator_loss(
                 img, label_img, masks,
                 f1, f2, x, config, vgg16=vgg16
@@ -332,8 +332,8 @@ if __name__ == '__main__':
             # Logging
             print("Loss D: {}".format(D_loss))
             print("Loss G: {}".format(G_loss))
-            d_writer.add_scalar("loss", loss, global_step=index)
-            g_writer.add_scalar("loss", loss, global_step=index)
+            d_writer.add_scalar("loss", D_loss, global_step=index)
+            g_writer.add_scalar("loss", G_loss, global_step=index)
 
             # Save the checkpoint
             if index % config.rep_intv == 0:

@@ -6,9 +6,9 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 
 
-def show_img(img):
+def show_img(img, cmap=None):
     plt.figure()
-    plt.imshow(img)
+    plt.imshow(img, cmap=cmap)
     plt.show()
 
 
