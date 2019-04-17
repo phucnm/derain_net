@@ -48,7 +48,11 @@ def resize(img, ratio):
 
 def image2tensor(img):
     """Transform image array read from matplotlib to tensor with shape (1, x, h, w)
+    Align to four because there are some images have dimension 481, or 721
     """
+    algined_w = int(img.shape[0]/4)*4
+    algined_h = int(img.shape[1]/4)*4
+    img = img[0: algined_w, 0: algined_h]
     return torch.tensor(img).permute(2, 0, 1).unsqueeze(0)
 
 
